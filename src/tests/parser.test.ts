@@ -223,6 +223,68 @@ describe('BGGXMLParser', () => {
     })
   })
 
+  describe('parseHotFromAPI', () => {
+    it('should parse hot items from API response', () => {
+      const apiData = {
+        items: {
+          item: [
+            {
+              id: 13,
+              type: 'boardgame',
+              rank: 1,
+              name: { _text: 'Catan' },
+              yearpublished: 1995,
+              thumbnail: 'https://example.com/thumb.jpg'
+            },
+            {
+              id: 14,
+              type: 'boardgame',
+              rank: 2,
+              name: { _text: 'Carcassonne' },
+              yearpublished: 2000
+            }
+          ]
+        }
+      }
+
+      const hot = parser.parseHotFromAPI(apiData)
+
+      expect(hot.total).toBe(2)
+      expect(hot.items[0].id).toBe(13)
+      expect(hot.items[0].rank).toBe(1)
+      expect(hot.items[0].name).toBe('Catan')
+      expect(hot.items[0].yearpublished).toBe(1995)
+      expect(hot.items[1].rank).toBe(2)
+      expect(hot.items[1].name).toBe('Carcassonne')
+    })
+
+    it('should handle empty hot items', () => {
+      const apiData = { items: {} }
+      const hot = parser.parseHotFromAPI(apiData)
+
+      expect(hot.total).toBe(0)
+      expect(hot.items).toHaveLength(0)
+    })
+
+    it('should handle single hot item', () => {
+      const apiData = {
+        items: {
+          item: {
+            id: 13,
+            type: 'boardgame',
+            rank: 1,
+            name: { _text: 'Catan' }
+          }
+        }
+      }
+
+      const hot = parser.parseHotFromAPI(apiData)
+
+      expect(hot.total).toBe(1)
+      expect(hot.items[0].name).toBe('Catan')
+    })
+  })
+
   describe('parsePlays', () => {
     it('should parse plays data', () => {
       const xml = `<?xml version="1.0" encoding="utf-8"?>

@@ -47,8 +47,12 @@ export class BGGFetcher {
 
     try {
       const headers: Record<string, string> = {
-        'Accept': 'text/xml',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'Accept': 'text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache'
       }
 
       if (this.authToken) {
@@ -56,10 +60,12 @@ export class BGGFetcher {
         headers['Authorization'] = `${prefix}${this.authToken}`
       }
 
-      const response = await fetch(url, {
+      const fetchOptions: RequestInit = {
         signal: controller.signal,
         headers
-      })
+      }
+
+      const response = await fetch(url, fetchOptions)
 
       if (response.status === 202) {
         return {

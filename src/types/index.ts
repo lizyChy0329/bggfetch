@@ -59,7 +59,7 @@ export interface BGGSearchItem {
 export interface BGGUser {
   id: number
   name: string
- avatid?: number
+  avatid?: number
   avatar?: string
   country?: string
   stateorprovince?: string

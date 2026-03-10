@@ -1,5 +1,3 @@
-import { stringify as csvStringify } from 'csv-stringify'
-
 export async function output(data: unknown, format: string): Promise<void> {
   switch (format) {
     case 'json':
@@ -23,34 +21,28 @@ export async function output(data: unknown, format: string): Promise<void> {
 }
 
 async function outputCsv(data: unknown): Promise<void> {
-  if (Array.isArray(data)) {
-    if (data.length === 0) return
+  if (Array.isArray(data) && data.length > 0) {
     const items = data as Record<string, unknown>[]
     const headers = Object.keys(items[0])
-    const rows = items.map(item => headers.map(h => String(item[h] ?? '')))
+    const rows = items.map(item => headers.map(h => {
+      const val = item[h]
+      if (val === null || val === undefined) return ''
+      return String(val).replace(/"/g, '""')
+    }))
 
-    const stringifier = csvStringify()
-    stringifier.on('readable', () => {
-      let row
-      while ((row = stringifier.read()) !== null) {
-        process.stdout.write(row)
-      }
-    })
-    stringifier.write([...headers, ...rows.flat()])
-    stringifier.end()
+    const csvLines = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ]
+    console.log(csvLines.join('\n'))
   } else if (data && typeof data === 'object') {
     const item = data as Record<string, unknown>
     const headers = Object.keys(item)
-    const rows = [headers.map(h => String(item[h] ?? ''))]
-
-    const stringifier = csvStringify()
-    stringifier.on('readable', () => {
-      let row
-      while ((row = stringifier.read()) !== null) {
-        process.stdout.write(row)
-      }
+    const values = headers.map(h => {
+      const val = item[h]
+      if (val === null || val === undefined) return ''
+      return String(val).replace(/"/g, '""')
     })
-    stringifier.write(rows.flat())
-    stringifier.end()
+    console.log(values.map(v => `"${v}"`).join(','))
   }
 }
