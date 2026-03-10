@@ -21,8 +21,14 @@ export class BGGFetcher {
       baseURL: 'https://boardgamegeek.com',
       timeout: this.config.timeoutMs,
       headers: {
-        'User-Agent': 'bggfetch/1.0 (Board Game Data CLI)',
-        'Accept': 'application/xml'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/xml, text/xml, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Referer': 'https://boardgamegeek.com/',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       }
     })
   }
@@ -76,6 +82,10 @@ export class BGGFetcher {
             console.warn(`BGG server error, retrying in ${delay}ms...`)
             await new Promise(resolve => setTimeout(resolve, delay))
             continue
+          }
+
+          if (error.response?.status === 401) {
+            console.warn(`Authentication required for this endpoint`)
           }
         }
 

@@ -12,9 +12,20 @@ export async function gameCommand(id: string, options: GameOptions): Promise<voi
   const parser = new BGGXMLParser()
 
   const cookies = cookieManager.getCookies()
-  if (cookies) {
-    fetcher.setCookies(cookies)
+  if (!cookies) {
+    console.error('❌ BGG API now requires authentication.')
+    console.error('')
+    console.error('Please provide your BGG session cookies:')
+    console.error('1. Log into BGG in your browser')
+    console.error('2. Open Developer Tools > Application > Cookies')
+    console.error('3. Copy the cookie values (bb_session, bgguser)')
+    console.error('')
+    console.error('Then run: bggfetch auth set "your_cookies"')
+    console.error('')
+    console.error('Example: bggfetch auth set "bb_session=abc123; bgguser=yourusername"')
+    process.exit(1)
   }
+  fetcher.setCookies(cookies)
 
   try {
     const xml = await fetcher.getWithRetry(`/xmlapi2/thing?id=${id}&stats=1`)

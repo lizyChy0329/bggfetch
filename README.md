@@ -1,17 +1,23 @@
 # bggfetch 🚀
 
-> Fast BoardGameGeek CLI scraper. No API keys. Just cookies and go.
+> Fast BoardGameGeek CLI scraper. Requires authentication.
 
 [![npm version](https://img.shields.io/npm/v/bggfetch.svg)](https://www.npmjs.com/package/bggfetch)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+## ⚠️ Important: BGG API Now Requires Authentication
 
-- 🔐 **Cookie-based auth** - For private data (collection, plays)
-- 📊 **Multi-format output** - JSON, JSONL, CSV
-- ⚡ **Rate limiting** - Built-in 5-second delay to respect BGG
-- 🔁 **Auto-retry** - Handles BGG's 202 processing responses
-- 🎯 **TypeScript** - Full type support
+As of 2024-2025, BoardGameGeek's XML API requires authentication. You must provide your BGG cookies to use this tool.
+
+## Getting Your BGG Cookies
+
+1. **Log into BGG**: Visit https://boardgamegeek.com and log in
+2. **Open Developer Tools**: Press `F12` or `Cmd+Option+I`
+3. **Go to Application/Storage Tab**: Click on "Cookies" > "https://boardgamegeek.com"
+4. **Copy the following cookies**:
+   - `bb_session`
+   - `bgguser`
+   - `bggpassword` (if available)
 
 ## Install
 
@@ -29,6 +35,9 @@ bun add -g bggfetch
 ## Quick Start
 
 ```bash
+# Set your BGG cookies
+bggfetch auth set "bb_session=xxx; bgguser=yourusername;"
+
 # Check auth status
 bggfetch auth check
 
@@ -44,11 +53,32 @@ bggfetch user monteslu
 # Get hot games
 bggfetch hot
 
-# Get user collection (requires auth)
-bggfetch collection username --type boardgame
+# Get user collection
+bggfetch collection username
 ```
 
 ## Commands
+
+### Authentication
+
+```bash
+# Set cookies (required before using other commands)
+bggfetch auth set "bb_session=xxx; bgguser=xxx;"
+
+# Check current auth status
+bggfetch auth check
+
+# Clear cookies
+bggfetch auth clear
+
+# Show cookies file path
+bggfetch auth path
+```
+
+You can also set cookies via environment variable:
+```bash
+export BGG_COOKIES="bb_session=xxx; bgguser=xxx;"
+```
 
 ### Game
 
@@ -68,7 +98,7 @@ bggfetch search <query> [-n, --num <number>] [-f, --format <json|jsonl|csv>]
 bggfetch user <username> [-b, --buddies] [-h, --hot] [-f, --format <json|jsonl|csv>]
 ```
 
-### Collection (requires authentication)
+### Collection
 
 ```bash
 bggfetch collection <username> [-t, --type <type>] [-s, --status <status>] [-f, --format]
@@ -80,29 +110,10 @@ bggfetch collection <username> [-t, --type <type>] [-s, --status <status>] [-f, 
 bggfetch hot [-t, --type <boardgame|rpg|videogame>] [-n, --num <number>] [-f, --format]
 ```
 
-### Plays (requires authentication)
+### Plays
 
 ```bash
 bggfetch plays <username> [-g, --game <id>] [-n, --num <number>] [-f, --format]
-```
-
-### Authentication
-
-```bash
-# Check current auth status
-bggfetch auth check
-
-# Set cookies
-bggfetch auth set "bb_session=xxx; bgguser=xxx;"
-
-# Or use environment variable
-export BGG_COOKIES="bb_session=xxx; bgguser=xxx;"
-
-# Clear cookies
-bggfetch auth clear
-
-# Show cookies file path
-bggfetch auth path
 ```
 
 ## Output Formats
@@ -125,13 +136,9 @@ Config file: `~/.config/bggfetch/config.json`
 }
 ```
 
-## Environment Variables
-
-- `BGG_COOKIES` - Set cookies for authenticated requests
-
 ## Rate Limiting
 
-bggfetch respects BoardGameGeek's API limits by enforcing a 5-second delay between requests. This helps avoid rate limiting and ensures consistent access to BGG's data.
+bggfetch enforces a 5-second delay between requests to respect BGG's API limits.
 
 ## License
 
