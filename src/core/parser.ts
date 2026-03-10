@@ -296,6 +296,40 @@ export class BGGXMLParser {
     return { total: hotItems.length, items: hotItems }
   }
 
+  parseHotFromAPI(data: unknown): BGGHot {
+    const dataObj = data as Record<string, unknown>
+    const itemsWrapper = dataObj.items as Record<string, unknown> | undefined
+    const items = itemsWrapper?.item as
+      | Record<string, unknown>[]
+      | Record<string, unknown>
+      | undefined
+
+    if (!items) {
+      return { total: 0, items: [] }
+    }
+
+    const itemArray = Array.isArray(items) ? items : [items]
+
+    const hotItems: BGGHotItem[] = itemArray.map((item: Record<string, unknown>) => {
+      const nameValue = item.name
+      const name = typeof nameValue === 'object' && nameValue !== null 
+        ? (nameValue as Record<string, unknown>)._text as string || ''
+        : nameValue as string || ''
+      
+      return {
+        id: item.id as number,
+        rank: item.rank as number,
+        name,
+        yearpublished: item.yearpublished as number | undefined,
+        image: item.image as string | undefined,
+        thumbnail: item.thumbnail as string | undefined,
+        type: item.type as string
+      }
+    })
+
+    return { total: hotItems.length, items: hotItems }
+  }
+
   parsePlays(xml: string): BGGPlays {
     const data = this.parse(xml)
     const plays = (data as Record<string, unknown>).plays as

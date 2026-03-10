@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { XMLParser } from 'fast-xml-parser'
 import { RateLimiter } from './rate-limiter.js'
 import type { BGGConfig } from '../types/index.js'
 
@@ -8,84 +8,121 @@ const DEFAULT_CONFIG: BGGConfig = {
   defaultFormat: 'json'
 }
 
+const BGG_API = 'https://api.geekdo.com/xmlapi2/'
+
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '',
+  textNodeName: '_text'
+})
+
 export class BGGFetcher {
-  private client: AxiosInstance
   private rateLimiter: RateLimiter
   private config: BGGConfig
-  private cookies: string = ''
+  private authToken: string = ''
 
   constructor(config: Partial<BGGConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
     this.rateLimiter = new RateLimiter(this.config.delayMs)
-    this.client = axios.create({
-      baseURL: 'https://boardgamegeek.com',
-      timeout: this.config.timeoutMs,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/xml, text/xml, */*; q=0.01',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Referer': 'https://boardgamegeek.com/',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
-    })
   }
 
-  async get<T = string>(path: string, config: AxiosRequestConfig = {}): Promise<T> {
+  setAuthToken(token: string): void {
+    this.authToken = token
+  }
+
+  async get<T = unknown>(path: string, params: Record<string, unknown> = {}): Promise<T> {
     await this.rateLimiter.wait()
 
-    const requestHeaders: Record<string, string> = {}
-    if (this.cookies) {
-      requestHeaders['Cookie'] = this.cookies
+    const url = new URL(path, BGG_API)
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          url.searchParams.set(key, String(value))
+        }
+      })
     }
 
-    const response: AxiosResponse<T> = await this.client.get(path, {
-      ...config,
-      headers: { ...requestHeaders, ...config.headers } as typeof config.headers
-    })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs)
 
-    return response.data
+    try {
+      const headers: Record<string, string> = {
+        'Accept': 'text/xml',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+
+      if (this.authToken) {
+        const prefix = this.authToken.startsWith('GeekAuth') ? '' : 'GeekAuth '
+        headers['Authorization'] = `${prefix}${this.authToken}`
+      }
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers
+      })
+
+      if (response.status === 202) {
+        return {
+          _queued: true,
+          _status: 202,
+          _message: 'Request queued by BGG. Retry after a short delay.'
+        } as T
+      }
+
+      if (!response.ok) {
+        throw new Error(`BGG API error: ${response.status} ${response.statusText}`)
+      }
+
+      const xml = await response.text()
+      return parser.parse(xml) as T
+    } finally {
+      clearTimeout(timeoutId)
+    }
   }
 
-  async getWithRetry<T = string>(
+  async getWithRetry<T = unknown>(
     path: string,
-    config: AxiosRequestConfig = {},
+    params: Record<string, unknown> = {},
     maxRetries: number = 3
   ): Promise<T> {
     let lastError: Error | null = null
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        return await this.get<T>(path, config)
+        const result = await this.get<T>(path, params)
+
+        if (result && typeof result === 'object' && '_queued' in result) {
+          const delay = Math.pow(2, attempt) * 1000
+          console.warn(`BGG processing request, retrying in ${delay}ms...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+
+        return result
       } catch (error) {
         lastError = error as Error
 
-        if (axios.isAxiosError(error)) {
-          if (error.response?.status === 429) {
+        if (error instanceof Error) {
+          const message = error.message.toLowerCase()
+          if (message.includes('rate') || message.includes('429')) {
             const delay = Math.pow(2, attempt) * 1000
             console.warn(`Rate limited, retrying in ${delay}ms...`)
             await new Promise(resolve => setTimeout(resolve, delay))
             continue
           }
 
-          if (error.response?.status === 202) {
-            const delay = Math.pow(2, attempt) * 1000
-            console.warn(`BGG processing request, retrying in ${delay}ms...`)
-            await new Promise(resolve => setTimeout(resolve, delay))
-            continue
-          }
-
-          if (error.response?.status === 500 || error.response?.status === 503) {
+          if (message.includes('500') || message.includes('503') || message.includes('server error')) {
             const delay = Math.pow(2, attempt) * 1000
             console.warn(`BGG server error, retrying in ${delay}ms...`)
             await new Promise(resolve => setTimeout(resolve, delay))
             continue
           }
 
-          if (error.response?.status === 401) {
-            console.warn(`Authentication required for this endpoint`)
+          if (message.includes('abort')) {
+            const delay = Math.pow(2, attempt) * 1000
+            console.warn(`Request timeout, retrying in ${delay}ms...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+            continue
           }
         }
 
@@ -96,12 +133,10 @@ export class BGGFetcher {
     throw lastError
   }
 
-  setCookies(cookies: string): void {
-    this.cookies = cookies
+  setCookies(_cookies: string): void {
   }
 
   clearCookies(): void {
-    this.cookies = ''
   }
 
   setDelay(ms: number): void {
